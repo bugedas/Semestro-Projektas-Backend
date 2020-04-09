@@ -12,7 +12,6 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gofrs/uuid"
-	"github.com/gorilla/mux"
 	"github.com/jinzhu/gorm"
 	"github.com/wader/gormstore"
 	"golang.org/x/crypto/pbkdf2"
@@ -21,7 +20,7 @@ import (
 // Global variables -------------------------------------------
 var db *gorm.DB
 var sessionStore *gormstore.Store
-var passwordReg *regexp.Regexp
+var passwordRegex *regexp.Regexp
 
 // ------------------------------------------------------------
 
@@ -102,91 +101,11 @@ func ComparePasswords(passwordOne string, passwordTwo string) error {
 		return errors.New("Passwords too short")
 	}
 
-	if passwordReg.MatchString(passwordOne) != true {
+	if passwordRegex.MatchString(passwordOne) != true {
 		return errors.New("Passwords needs to contain at least one number and one capital letter")
 	}
 
 	return nil
-}
-
-//LandingPage comment
-func LandingPage(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Hello world"))
-}
-
-//RegisterPageHandler decodes user sent in data, verifies that
-//it is formatted correctly, and tries to create an account in
-//the database
-func RegisterPageHandler(w http.ResponseWriter, r *http.Request) {
-	user := struct {
-		Username       string `json: "username"`
-		Password       string `json: "password"`
-		RepeatPassword string `json: "repeatPassword"`
-	}{"", "", ""}
-
-	err := json.NewDecoder(r.Body).Decode(&user)
-
-	res, err := CreateNewAccount(user.Username, user.Password, user.RepeatPassword)
-
-	w.WriteHeader(res)
-
-	if err != nil {
-		response := Response{err.Error()}
-		JsonResponse(response, w)
-		return
-	}
-
-	response := Response{"Account created successfully"}
-	JsonResponse(response, w)
-	return
-}
-
-//LoginPageHandler comment
-func LoginPageHandler(w http.ResponseWriter, r *http.Request) {
-	session, _ := sessionStore.Get(r, "auth-token")
-
-	if session.Values["userID"] != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		response := Response{"Already logged in"}
-		JsonResponse(response, w)
-		return
-	}
-
-	userRequestData := struct {
-		Username string `json: "username"`
-		Password string `json: "password"`
-	}{"", ""}
-
-	json.NewDecoder(r.Body).Decode(&userRequestData)
-
-	var userDatabaseData User
-
-	db.Find(&userDatabaseData, "username = ?", userRequestData.Username)
-
-	if userDatabaseData.Username == "" {
-		w.WriteHeader(http.StatusUnauthorized)
-		response := Response{"Bad credentials"}
-		JsonResponse(response, w)
-		return
-	}
-
-	hashedPassword := GenerateSecurePassword(userRequestData.Password, userDatabaseData.Salt)
-
-	if hashedPassword != userDatabaseData.Password {
-		w.WriteHeader(http.StatusUnauthorized)
-		response := Response{"Bad credentials"}
-		JsonResponse(response, w)
-		return
-	}
-
-	session.Values["userID"] = userDatabaseData.ID
-
-	session.Save(r, w)
-
-	w.WriteHeader(http.StatusAccepted)
-	response := Response{"Login successful"}
-	JsonResponse(response, w)
-	return
 }
 
 //RefreshToken refreshes authentication token WORK IN PROGRESS not even close to complete
@@ -214,27 +133,9 @@ func JsonResponse(response interface{}, w http.ResponseWriter) {
 	w.Write(json)
 }
 
-//ProtectedHandler is for testing if a user permissions
-func ProtectedHandler(w http.ResponseWriter, r *http.Request) {
-
-	session, _ := sessionStore.Get(r, "auth-token")
-
-	if session.Values["userID"] == nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		response := Response{"You have to log in"}
-		JsonResponse(response, w)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	response := Response{"Gained access to protected resource"}
-	JsonResponse(response, w)
-	return
-}
-
 func main() {
 	//Regular expression for passwords to contain at least one capital letter and one number
-	passwordReg = regexp.MustCompile(`([A-Z].*=?)([0-9].*=?)|([0-9].*=?)([A-Z].*=?)`)
+	passwordRegex = regexp.MustCompile(`([A-Z].*=?)([0-9].*=?)|([0-9].*=?)([A-Z].*=?)`)
 
 	log.Println("Opening database")
 	var err error
@@ -255,13 +156,7 @@ func main() {
 	quit := make(chan struct{})
 	go sessionStore.PeriodicCleanup(time.Minute, quit)
 
-	//Handles requested links
-	r := mux.NewRouter()
-	r.HandleFunc("/", LandingPage)
-	r.HandleFunc("/login", LoginPageHandler).Methods("POST")
-	r.HandleFunc("/register", RegisterPageHandler).Methods("POST")
-	r.HandleFunc("/resource", ProtectedHandler)
+	HandleFunctions()
 
 	log.Println("Server started on port 8000")
-	http.ListenAndServe(":8000", r)
 }
