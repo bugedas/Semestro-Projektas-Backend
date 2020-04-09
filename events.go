@@ -1,24 +1,33 @@
 package main
 
 import (
+	"encoding/json"
+	"log"
+	"net/http"
+
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/jinzhu/gorm"
 )
 
 type Event struct {
+	gorm.Model
+	Creator     int    `json: "creatorUserId"`
 	Description string `json: "description"`
-	City        string `json: "repeatPassword"`
-	Location    string `json "location"`
+	Location    string `json: "location"`
 }
 
-func CreateEvent() {
+func CreateEvent(w http.ResponseWriter, r *http.Request) {
 	var newEvent Event
 
+	err := json.NewDecoder(r.Body).Decode(&newEvent)
+
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	db.Create(&newEvent)
-}
-
-func DeleteEvent() {
-	var event Event
-	var id int
-
-	db.Where("id = ?", id).Delete(&event)
+	w.WriteHeader(http.StatusCreated)
+	return
 }
