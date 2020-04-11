@@ -23,8 +23,8 @@ type Response struct {
 	Data string `json:"data"`
 }
 
-//JsonResponse sends a json response to user based on message
-func JsonResponse(response interface{}, w http.ResponseWriter) {
+//JSONResponse sends a json response to user based on message
+func JSONResponse(response interface{}, w http.ResponseWriter) {
 
 	json, err := json.Marshal(response)
 	if err != nil {

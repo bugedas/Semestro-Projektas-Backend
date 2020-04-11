@@ -14,18 +14,18 @@ func ProtectedHandler(w http.ResponseWriter, r *http.Request) {
 	if session.Values["userID"] == nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		response := Response{"You have to log in"}
-		JsonResponse(response, w)
+		JSONResponse(response, w)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 	response := Response{"Gained access to protected resource"}
-	JsonResponse(response, w)
+	JSONResponse(response, w)
 	return
 }
 
-//LandingPageHandler comment
-func LandingPageHandler(w http.ResponseWriter, r *http.Request) {
+//LandingPage comment
+func LandingPage(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Hello world"))
 }
 
@@ -43,11 +43,12 @@ func RefreshToken(w http.ResponseWriter, r *http.Request) {
 
 func HandleFunctions() {
 	r := mux.NewRouter()
-	r.HandleFunc("/", LandingPageHandler)
+	r.HandleFunc("/", LandingPage)
 	r.HandleFunc("/login", Login).Methods("POST")
 	r.HandleFunc("/account", RegisterNewAccount).Methods("POST")
+	r.HandleFunc("/account", GetAccountInfo).Methods("GET")
 	r.HandleFunc("/resource", ProtectedHandler)
 	r.HandleFunc("/events", CreateEvent).Methods("POST")
 	//r.HandleFunc("/events", GetEventsHandler).Methods("GET")
-	http.ListenAndServe(":8000", r)
+	http.ListenAndServe(":80", r)
 }
