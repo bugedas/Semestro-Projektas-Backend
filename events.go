@@ -31,6 +31,28 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	return
 }
+
+func GetEvents(w http.ResponseWriter, r *http.Request) {
+	var events []Event
+
+	var eventFilter Event
+
+	err := json.NewDecoder(r.Body).Decode(&eventFilter)
+
+	log.Println(eventFilter)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	db.Where("location = ?", eventFilter.Location).Select("creator, description, location").Find(&events)
+
+	JSONResponse(events, w)
+	w.WriteHeader(http.StatusOK)
+	return
+}
+
 func JoinEvent(w http.ResponseWriter, r *http.Request) {
 	session, _ := sessionStore.Get(r, "auth-token")
 
