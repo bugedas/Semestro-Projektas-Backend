@@ -11,9 +11,10 @@ import (
 
 type Event struct {
 	gorm.Model
-	Creator     int    `json: "creatorUserId"`
-	Description string `json: "description"`
-	Location    string `json: "location"`
+	Creator     int     `json: "creator"`
+	Description string  `json: "description"`
+	Location    string  `json: "location"`
+	Users       []*User `gorm:"many2many:events_joined;"`
 }
 
 func CreateEvent(w http.ResponseWriter, r *http.Request) {

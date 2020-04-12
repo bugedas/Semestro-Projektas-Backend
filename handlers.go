@@ -49,6 +49,7 @@ func HandleFunctions() {
 	r.HandleFunc("/account", GetAccountInfo).Methods("GET")
 	r.HandleFunc("/resource", ProtectedHandler)
 	r.HandleFunc("/events", CreateEvent).Methods("POST")
-	//r.HandleFunc("/events", GetEventsHandler).Methods("GET")
-	http.ListenAndServe(":80", r)
+	r.HandleFunc("/events", GetEvents).Methods("GET")
+	r.HandleFunc("/events", JoinEvent).Methods("PUT")
+	http.ListenAndServe(":8000", r)
 }
