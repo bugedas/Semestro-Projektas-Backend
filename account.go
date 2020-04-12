@@ -17,6 +17,7 @@ type User struct {
 	Username string
 	Password string
 	Salt     string
+	Events   []*Event `gorm:"many2many:events_joined;"`
 }
 
 //ComparePasswords checks that, while registering a new account,
