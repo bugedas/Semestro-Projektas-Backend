@@ -5,6 +5,8 @@
 *.so
 *.dylib
 Caddyfile
+*.zip
+*.txt
 
 # Test binary, built with `go test -c`
 *.test
