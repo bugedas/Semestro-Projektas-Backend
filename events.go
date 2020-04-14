@@ -55,7 +55,7 @@ func JoinEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Gets id from /events/{id}
+	//Gets id from /events/{id}/users
 	params := mux.Vars(r)
 	eventID, err := strconv.Atoi(params["id"])
 
@@ -99,24 +99,35 @@ func LeaveEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//decode event id from
-	event := struct {
-		ID int `json: "id"`
-	}{}
+	//Gets id from /events/{id}/users
+	params := mux.Vars(r)
+	eventID, err := strconv.Atoi(params["id"])
 
-	json.NewDecoder(r.Body).Decode(&event)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
+	//Get user and event seperately from provided IDs
 	var user User
 	db.First(&user, session.Values["userID"].(uint))
 
 	var selectedEvent Event
-	db.Preload("Users").First(&selectedEvent, "id = ?", event.ID)
+	db.Preload("Users").First(&selectedEvent, "id = ?", eventID)
 
+	//Check if event and user exist
 	if selectedEvent.ID == 0 || user.ID == 0 {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
+	//Check if user is not the creator
+	if user.ID == selectedEvent.CreatorID {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	//Add user to event
 	db.Model(&selectedEvent).Association("Users").Delete(&user)
 
 	w.WriteHeader(http.StatusOK)
