@@ -1,4 +1,4 @@
-module github.com/airidasz/SemestroProjektasBackendKTU2020
+module github.com/bugedas/SemestroProjektasBackendKTU2020
 
 go 1.13
 

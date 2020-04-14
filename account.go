@@ -14,9 +14,12 @@ import (
 
 type User struct {
 	gorm.Model
+	Email    string
 	Username string
 	Password string
+	Gender   string
 	Salt     string
+	Events   []*Event `gorm:"many2many:events_joined;"`
 }
 
 //ComparePasswords checks that, while registering a new account,
@@ -43,20 +46,21 @@ func ComparePasswords(passwordOne string, passwordTwo string) error {
 //the database
 func RegisterNewAccount(w http.ResponseWriter, r *http.Request) {
 	user := struct {
+		Email          string `json: "email"`
 		Username       string `json: "username"`
 		Password       string `json: "password"`
 		RepeatPassword string `json: "repeatPassword"`
-	}{"", "", ""}
+		Gender         string `json: "gender"`
+	}{"", "", "", "", ""}
 
 	err := json.NewDecoder(r.Body).Decode(&user)
 
-	res, err := PerformUserDataChecks(user.Username, user.Password, user.RepeatPassword)
+	res, err := PerformUserDataChecks(user.Email, user.Password, user.RepeatPassword)
 
 	w.WriteHeader(res)
 
 	if err != nil {
-		response := Response{err.Error()}
-		JSONResponse(response, w)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
@@ -64,15 +68,15 @@ func RegisterNewAccount(w http.ResponseWriter, r *http.Request) {
 	hashedPassword := GenerateSecurePassword(user.Password, salt)
 
 	newUser := User{
-		Username: user.Username,
+		Email:    user.Email,
 		Password: hashedPassword,
+		Gender:   user.Gender,
 		Salt:     salt,
 	}
 	db.Debug().Create(&newUser)
 	db.Save(&newUser)
 
-	response := Response{"Account created successfully"}
-	JSONResponse(response, w)
+	JSONResponse(struct{}{}, w)
 	return
 }
 
@@ -81,13 +85,12 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	if session.Values["userID"] != nil {
 		w.WriteHeader(http.StatusUnauthorized)
-		response := Response{"Already logged in"}
-		JSONResponse(response, w)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
 	userRequestData := struct {
-		Username string `json: "username"`
+		Email    string `json: "email"`
 		Password string `json: "password"`
 	}{"", ""}
 
@@ -95,12 +98,11 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	var userDatabaseData User
 
-	db.Find(&userDatabaseData, "username = ?", userRequestData.Username)
+	db.Find(&userDatabaseData, "email = ?", userRequestData.Email)
 
 	if userDatabaseData.Username == "" {
 		w.WriteHeader(http.StatusUnauthorized)
-		response := Response{"Bad credentials"}
-		JSONResponse(response, w)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
@@ -108,18 +110,15 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	if hashedPassword != userDatabaseData.Password {
 		w.WriteHeader(http.StatusUnauthorized)
-		response := Response{"Bad credentials"}
-		JSONResponse(response, w)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
 	session.Values["userID"] = userDatabaseData.ID
-
 	session.Save(r, w)
 
 	w.WriteHeader(http.StatusAccepted)
-	response := Response{"Login successful"}
-	JSONResponse(response, w)
+	JSONResponse(struct{}{}, w)
 	return
 }
 
@@ -138,13 +137,13 @@ func GenerateSecurePassword(password string, salt string) string {
 }
 
 //CheckNameAvailability checks if a username is available
-func CheckNameAvailability(username string) error {
+func CheckEmailAvailability(email string) error {
 	var user User
 
-	db.Find(&user, "username = ?", username)
+	db.Find(&user, "email = ?", email)
 
-	if user.Username != "" {
-		return errors.New("Username exists")
+	if user.Email != "" {
+		return errors.New("Email exists")
 	}
 
 	return nil
@@ -152,8 +151,8 @@ func CheckNameAvailability(username string) error {
 
 //CreateNewAccount creates an account if the sent data
 //is correctly formatted
-func PerformUserDataChecks(username string, password string, repeatedPassword string) (httpStatus int, err error) {
-	err = CheckNameAvailability(username)
+func PerformUserDataChecks(email string, password string, repeatedPassword string) (httpStatus int, err error) {
+	err = CheckEmailAvailability(email)
 	if err != nil {
 		return http.StatusNotAcceptable, err
 	}
@@ -171,6 +170,7 @@ func GetAccountInfo(w http.ResponseWriter, r *http.Request) {
 
 	if session.Values["userID"] == nil {
 		w.WriteHeader(http.StatusUnauthorized)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
@@ -180,5 +180,6 @@ func GetAccountInfo(w http.ResponseWriter, r *http.Request) {
 	JSONResponse(user, w)
 
 	w.WriteHeader(http.StatusOK)
+	JSONResponse(struct{}{}, w)
 	return
 }
