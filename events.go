@@ -26,6 +26,7 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 	if session.Values["userID"] == nil {
 		w.WriteHeader(http.StatusUnauthorized)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
@@ -43,6 +44,7 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 	db.Model(&newEvent).AddForeignKey("creator_id", "users(id)", "RESTRICT", "RESTRICT")
 	db.Create(&newEvent)
 	w.WriteHeader(http.StatusCreated)
+	JSONResponse(struct{}{}, w)
 	return
 }
 
@@ -52,6 +54,7 @@ func JoinEvent(w http.ResponseWriter, r *http.Request) {
 
 	if session.Values["userID"] == nil {
 		w.WriteHeader(http.StatusUnauthorized)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
@@ -61,6 +64,7 @@ func JoinEvent(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
@@ -74,12 +78,14 @@ func JoinEvent(w http.ResponseWriter, r *http.Request) {
 	//Check if event and user exist
 	if selectedEvent.ID == 0 || user.ID == 0 {
 		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
 	//Check if user is not the creator
 	if user.ID == selectedEvent.CreatorID {
 		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
@@ -87,6 +93,7 @@ func JoinEvent(w http.ResponseWriter, r *http.Request) {
 	db.Model(&selectedEvent).Association("Users").Append(&user)
 
 	w.WriteHeader(http.StatusOK)
+	JSONResponse(struct{}{}, w)
 	return
 }
 
@@ -96,6 +103,7 @@ func LeaveEvent(w http.ResponseWriter, r *http.Request) {
 
 	if session.Values["userID"] == nil {
 		w.WriteHeader(http.StatusUnauthorized)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
@@ -105,6 +113,7 @@ func LeaveEvent(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
@@ -118,12 +127,14 @@ func LeaveEvent(w http.ResponseWriter, r *http.Request) {
 	//Check if event and user exist
 	if selectedEvent.ID == 0 || user.ID == 0 {
 		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
 	//Check if user is not the creator
 	if user.ID == selectedEvent.CreatorID {
 		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
@@ -131,6 +142,7 @@ func LeaveEvent(w http.ResponseWriter, r *http.Request) {
 	db.Model(&selectedEvent).Association("Users").Delete(&user)
 
 	w.WriteHeader(http.StatusOK)
+	JSONResponse(struct{}{}, w)
 	return
 }
 
@@ -153,10 +165,12 @@ func GetEvents(w http.ResponseWriter, r *http.Request) {
 
 	if len(events) == 0 {
 		w.WriteHeader(http.StatusNoContent)
+		JSONResponse(struct{}{}, w)
 		return
 	}
-	JSONResponse(events, w)
+
 	w.WriteHeader(http.StatusOK)
+	JSONResponse(events, w)
 	return
 }
 
@@ -166,6 +180,7 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 
 	if session.Values["userID"] == nil {
 		w.WriteHeader(http.StatusUnauthorized)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 	userID := session.Values["userID"].(uint)
@@ -176,6 +191,7 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
@@ -186,12 +202,14 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 	//checks if the user that is trying to delete event is its creator
 	if event.CreatorID != userID {
 		w.WriteHeader(http.StatusUnauthorized)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
 	//Deletes the record from database
 	if db.Unscoped().Delete(&event).RecordNotFound() {
 		w.WriteHeader(http.StatusNoContent)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
@@ -199,5 +217,6 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 	db.Model(&event).Association("Users").Delete(&event.Users)
 
 	w.WriteHeader(http.StatusOK)
+	JSONResponse(struct{}{}, w)
 	return
 }
