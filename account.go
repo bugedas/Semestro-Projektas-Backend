@@ -100,7 +100,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	db.Find(&userDatabaseData, "email = ?", userRequestData.Email)
 
-	if userDatabaseData.Username == "" {
+	if userDatabaseData.Email == "" {
 		w.WriteHeader(http.StatusUnauthorized)
 		JSONResponse(struct{}{}, w)
 		return
