@@ -60,8 +60,7 @@ func RegisterNewAccount(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(res)
 
 	if err != nil {
-		response := Response{err.Error()}
-		JSONResponse(response, w)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
@@ -77,8 +76,7 @@ func RegisterNewAccount(w http.ResponseWriter, r *http.Request) {
 	db.Debug().Create(&newUser)
 	db.Save(&newUser)
 
-	response := Response{"Account created successfully"}
-	JSONResponse(response, w)
+	JSONResponse(struct{}{}, w)
 	return
 }
 
@@ -87,8 +85,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	if session.Values["userID"] != nil {
 		w.WriteHeader(http.StatusUnauthorized)
-		response := Response{"Already logged in"}
-		JSONResponse(response, w)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
@@ -105,8 +102,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	if userDatabaseData.Username == "" {
 		w.WriteHeader(http.StatusUnauthorized)
-		response := Response{"Bad credentials"}
-		JSONResponse(response, w)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
@@ -114,18 +110,15 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	if hashedPassword != userDatabaseData.Password {
 		w.WriteHeader(http.StatusUnauthorized)
-		response := Response{"Bad credentials"}
-		JSONResponse(response, w)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
 	session.Values["userID"] = userDatabaseData.ID
-
 	session.Save(r, w)
 
 	w.WriteHeader(http.StatusAccepted)
-	response := Response{"Login successful"}
-	JSONResponse(response, w)
+	JSONResponse(struct{}{}, w)
 	return
 }
 
@@ -177,6 +170,7 @@ func GetAccountInfo(w http.ResponseWriter, r *http.Request) {
 
 	if session.Values["userID"] == nil {
 		w.WriteHeader(http.StatusUnauthorized)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
@@ -186,5 +180,6 @@ func GetAccountInfo(w http.ResponseWriter, r *http.Request) {
 	JSONResponse(user, w)
 
 	w.WriteHeader(http.StatusOK)
+	JSONResponse(struct{}{}, w)
 	return
 }

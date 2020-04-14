@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/gorilla/mux"
 	"github.com/jinzhu/gorm"
 )
 
@@ -13,9 +16,11 @@ type Event struct {
 	gorm.Model
 	Creator     User `gorm:"foreignkey:CreatorID"`
 	CreatorID   uint
-	Description string  `json: "description"`
-	Location    string  `json: "location"`
-	Users       []*User `gorm:"many2many:events_joined;"`
+	Description string    `json: "description"`
+	Location    string    `json: "location"`
+	StartTime   time.Time `json: "startTime"`
+	EndTime     time.Time `json: "EndTime"`
+	Users       []*User   `gorm:"many2many:events_joined;"`
 }
 
 func CreateEvent(w http.ResponseWriter, r *http.Request) {
@@ -24,6 +29,7 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 	if session.Values["userID"] == nil {
 		w.WriteHeader(http.StatusUnauthorized)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
@@ -41,66 +47,105 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 	db.Model(&newEvent).AddForeignKey("creator_id", "users(id)", "RESTRICT", "RESTRICT")
 	db.Create(&newEvent)
 	w.WriteHeader(http.StatusCreated)
+	JSONResponse(struct{}{}, w)
 	return
 }
 
 func JoinEvent(w http.ResponseWriter, r *http.Request) {
+	//Get user id from auth token
 	session, _ := sessionStore.Get(r, "auth-token")
 
 	if session.Values["userID"] == nil {
 		w.WriteHeader(http.StatusUnauthorized)
+		JSONResponse(struct{}{}, w)
 		return
 	}
-	event := struct {
-		ID int `json: "id"`
-	}{}
 
-	json.NewDecoder(r.Body).Decode(&event)
+	//Gets id from /events/{id}/users
+	params := mux.Vars(r)
+	eventID, err := strconv.Atoi(params["id"])
 
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	//Get user and event seperately from provided IDs
 	var user User
 	db.First(&user, session.Values["userID"].(uint))
 
 	var selectedEvent Event
-	db.Preload("Users").First(&selectedEvent, "id = ?", event.ID)
+	db.Preload("Users").First(&selectedEvent, "id = ?", eventID)
 
+	//Check if event and user exist
 	if selectedEvent.ID == 0 || user.ID == 0 {
 		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
+	//Check if user is not the creator
+	if user.ID == selectedEvent.CreatorID {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	//Add user to event
 	db.Model(&selectedEvent).Association("Users").Append(&user)
 
 	w.WriteHeader(http.StatusOK)
+	JSONResponse(struct{}{}, w)
 	return
 }
 
 func LeaveEvent(w http.ResponseWriter, r *http.Request) {
+	//Get user id from auth token
 	session, _ := sessionStore.Get(r, "auth-token")
 
 	if session.Values["userID"] == nil {
 		w.WriteHeader(http.StatusUnauthorized)
+		JSONResponse(struct{}{}, w)
 		return
 	}
-	event := struct {
-		ID int `json: "id"`
-	}{}
 
-	json.NewDecoder(r.Body).Decode(&event)
+	//Gets id from /events/{id}/users
+	params := mux.Vars(r)
+	eventID, err := strconv.Atoi(params["id"])
 
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	//Get user and event seperately from provided IDs
 	var user User
 	db.First(&user, session.Values["userID"].(uint))
 
 	var selectedEvent Event
-	db.Preload("Users").First(&selectedEvent, "id = ?", event.ID)
+	db.Preload("Users").First(&selectedEvent, "id = ?", eventID)
 
+	//Check if event and user exist
 	if selectedEvent.ID == 0 || user.ID == 0 {
 		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
 		return
 	}
 
+	//Check if user is not the creator
+	if user.ID == selectedEvent.CreatorID {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	//Add user to event
 	db.Model(&selectedEvent).Association("Users").Delete(&user)
 
 	w.WriteHeader(http.StatusOK)
+	JSONResponse(struct{}{}, w)
 	return
 }
 
@@ -123,9 +168,58 @@ func GetEvents(w http.ResponseWriter, r *http.Request) {
 
 	if len(events) == 0 {
 		w.WriteHeader(http.StatusNoContent)
+		JSONResponse(struct{}{}, w)
 		return
 	}
-	JSONResponse(events, w)
+
 	w.WriteHeader(http.StatusOK)
+	JSONResponse(events, w)
+	return
+}
+
+func DeleteEvent(w http.ResponseWriter, r *http.Request) {
+	//Loads creator id from authentication token
+	session, _ := sessionStore.Get(r, "auth-token")
+
+	if session.Values["userID"] == nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+	userID := session.Values["userID"].(uint)
+
+	//Gets id from /events/{id}
+	params := mux.Vars(r)
+	eventID, err := strconv.Atoi(params["id"])
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	//Loads event with joined users preloaded
+	var event Event
+	db.Preload("Users").Where("id = ?", eventID).First(&event)
+
+	//checks if the user that is trying to delete event is its creator
+	if event.CreatorID != userID {
+		w.WriteHeader(http.StatusUnauthorized)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	//Deletes the record from database
+	if db.Unscoped().Delete(&event).RecordNotFound() {
+		w.WriteHeader(http.StatusNoContent)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	//Deletes associations (users that joined the event)
+	db.Model(&event).Association("Users").Delete(&event.Users)
+
+	w.WriteHeader(http.StatusOK)
+	JSONResponse(struct{}{}, w)
 	return
 }
