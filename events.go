@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
@@ -15,9 +16,11 @@ type Event struct {
 	gorm.Model
 	Creator     User `gorm:"foreignkey:CreatorID"`
 	CreatorID   uint
-	Description string  `json: "description"`
-	Location    string  `json: "location"`
-	Users       []*User `gorm:"many2many:events_joined;"`
+	Description string    `json: "description"`
+	Location    string    `json: "location"`
+	StartTime   time.Time `json: "startTime"`
+	EndTime     time.Time `json: "EndTime"`
+	Users       []*User   `gorm:"many2many:events_joined;"`
 }
 
 func CreateEvent(w http.ResponseWriter, r *http.Request) {
