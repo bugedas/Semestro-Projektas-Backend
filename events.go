@@ -25,7 +25,7 @@ type Event struct {
 
 func CreateEvent(w http.ResponseWriter, r *http.Request) {
 	var user User
-	session, _ := sessionStore.Get(r, "auth-token")
+	session, _ := sessionStore.Get(r, "Access-token")
 
 	if session.Values["userID"] == nil {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -53,7 +53,7 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 func JoinEvent(w http.ResponseWriter, r *http.Request) {
 	//Get user id from auth token
-	session, _ := sessionStore.Get(r, "auth-token")
+	session, _ := sessionStore.Get(r, "Access-token")
 
 	if session.Values["userID"] == nil {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -102,7 +102,7 @@ func JoinEvent(w http.ResponseWriter, r *http.Request) {
 
 func LeaveEvent(w http.ResponseWriter, r *http.Request) {
 	//Get user id from auth token
-	session, _ := sessionStore.Get(r, "auth-token")
+	session, _ := sessionStore.Get(r, "Access-token")
 
 	if session.Values["userID"] == nil {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -167,7 +167,7 @@ func GetEvents(w http.ResponseWriter, r *http.Request) {
 	tx.Preload("Users").Find(&events)
 
 	if len(events) == 0 {
-		w.WriteHeader(http.StatusNoContent)
+		w.WriteHeader(http.StatusBadRequest)
 		JSONResponse(struct{}{}, w)
 		return
 	}
@@ -179,7 +179,7 @@ func GetEvents(w http.ResponseWriter, r *http.Request) {
 
 func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 	//Loads creator id from authentication token
-	session, _ := sessionStore.Get(r, "auth-token")
+	session, _ := sessionStore.Get(r, "Access-token")
 
 	if session.Values["userID"] == nil {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -211,7 +211,7 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 
 	//Deletes the record from database
 	if db.Unscoped().Delete(&event).RecordNotFound() {
-		w.WriteHeader(http.StatusNoContent)
+		w.WriteHeader(http.StatusBadRequest)
 		JSONResponse(struct{}{}, w)
 		return
 	}
