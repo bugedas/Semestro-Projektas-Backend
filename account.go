@@ -16,29 +16,10 @@ type User struct {
 	gorm.Model
 	Email    string
 	Username string
-	Password string
 	Gender   string
+	Password string
 	Salt     string
 	Events   []*Event `gorm:"many2many:events_joined;"`
-}
-
-//ComparePasswords checks that, while registering a new account,
-//the password matches the repeated password, is atleast 8 characters long and
-//contains at least one number and one capital letter
-func ComparePasswords(passwordOne string, passwordTwo string) error {
-	if passwordOne != passwordTwo {
-		return errors.New("Passwords do not match")
-	}
-
-	if len(passwordOne) < 8 {
-		return errors.New("Passwords too short")
-	}
-
-	if passwordRegex.MatchString(passwordOne) != true {
-		return errors.New("Passwords needs to contain at least one number and one capital letter")
-	}
-
-	return nil
 }
 
 //RegisterPageHandler decodes user sent in data, verifies that
@@ -69,6 +50,7 @@ func RegisterNewAccount(w http.ResponseWriter, r *http.Request) {
 
 	newUser := User{
 		Email:    user.Email,
+		Username: user.Username,
 		Password: hashedPassword,
 		Gender:   user.Gender,
 		Salt:     salt,
@@ -84,7 +66,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	session, _ := sessionStore.Get(r, "auth-token")
 
 	if session.Values["userID"] != nil {
-		w.WriteHeader(http.StatusUnauthorized)
+		w.WriteHeader(http.StatusBadRequest)
 		JSONResponse(struct{}{}, w)
 		return
 	}
@@ -98,10 +80,9 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	var userDatabaseData User
 
-	db.Find(&userDatabaseData, "email = ?", userRequestData.Email)
-
-	if userDatabaseData.Email == "" {
-		w.WriteHeader(http.StatusUnauthorized)
+	// Finds user by email in database, if no user, then returns "bad request"
+	if db.Find(&userDatabaseData, "email = ?", userRequestData.Email).RecordNotFound() {
+		w.WriteHeader(http.StatusBadRequest)
 		JSONResponse(struct{}{}, w)
 		return
 	}
@@ -114,10 +95,28 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session.Values["userID"] = userDatabaseData.ID
-	session.Save(r, w)
+	CreateAccessToken(w, r, userDatabaseData)
 
 	w.WriteHeader(http.StatusAccepted)
+	JSONResponse(struct{}{}, w)
+	return
+}
+
+func GetAccountInfo(w http.ResponseWriter, r *http.Request) {
+	session, _ := sessionStore.Get(r, "auth-token")
+
+	if session.Values["userID"] == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	var user User
+	db.First(&user, session.Values["userID"].(uint))
+
+	JSONResponse(user, w)
+
+	w.WriteHeader(http.StatusOK)
 	JSONResponse(struct{}{}, w)
 	return
 }
@@ -140,9 +139,7 @@ func GenerateSecurePassword(password string, salt string) string {
 func CheckEmailAvailability(email string) error {
 	var user User
 
-	db.Find(&user, "email = ?", email)
-
-	if user.Email != "" {
+	if !db.Find(&user, "email = ?", email).RecordNotFound() {
 		return errors.New("Email exists")
 	}
 
@@ -165,21 +162,30 @@ func PerformUserDataChecks(email string, password string, repeatedPassword strin
 	return http.StatusCreated, nil
 }
 
-func GetAccountInfo(w http.ResponseWriter, r *http.Request) {
-	session, _ := sessionStore.Get(r, "auth-token")
-
-	if session.Values["userID"] == nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		JSONResponse(struct{}{}, w)
-		return
+//ComparePasswords checks that, while registering a new account,
+//the password matches the repeated password, is atleast 8 characters long and
+//contains at least one number and one capital letter
+func ComparePasswords(passwordOne string, passwordTwo string) error {
+	if passwordOne != passwordTwo {
+		return errors.New("Passwords do not match")
 	}
 
-	var user User
-	db.First(&user, session.Values["userID"].(uint))
+	if len(passwordOne) < 8 {
+		return errors.New("Passwords too short")
+	}
 
-	JSONResponse(user, w)
+	if passwordRegex.MatchString(passwordOne) != true {
+		return errors.New("Passwords needs to contain at least one number and one capital letter")
+	}
 
-	w.WriteHeader(http.StatusOK)
-	JSONResponse(struct{}{}, w)
-	return
+	return nil
+}
+
+func CreateAccessToken(w http.ResponseWriter, r *http.Request, user User) {
+	session, _ := sessionStore.Get(r, "Access-token")
+
+	session.Values["userID"] = user.ID
+	session.Options.MaxAge = 60 * 20
+	session.Options.HttpOnly = true
+	session.Save(r, w)
 }
