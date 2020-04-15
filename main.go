@@ -48,7 +48,7 @@ func GetEnvironmentVariables() (env envData, err error) {
 	cookieSecret := os.Getenv("COOKIE_SECRET")
 
 	if dbUsername == "" || dbPassword == "" || cookieSecret == "" {
-		return env, errors.New("Missing credentials\nPlease check if the envriorement variables are set")
+		return env, errors.New("Missing credentials, please check if the envriorement variables are set")
 	}
 
 	env = envData{dbUsername, dbPassword, []byte(cookieSecret)}
