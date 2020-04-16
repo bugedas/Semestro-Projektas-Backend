@@ -69,9 +69,8 @@ func main() {
 		return
 	}
 
-	dbString := fmt.Sprint(envData.dbUsername, ":", envData.dbPassword, "@tcp(localhost:3306)/semestroprojektasktu2020?parseTime=true")
 	log.Println("Opening database")
-
+	dbString := fmt.Sprint(envData.dbUsername, ":", envData.dbPassword, "@tcp(localhost:3306)/semestroprojektasktu2020?parseTime=true")
 	db, err = gorm.Open("mysql", dbString)
 
 	if err != nil {
@@ -92,5 +91,6 @@ func main() {
 	quit := make(chan struct{})
 	go sessionStore.PeriodicCleanup(time.Minute, quit)
 
+	//Handles the requests and redirects them to functions
 	HandleFunctions()
 }

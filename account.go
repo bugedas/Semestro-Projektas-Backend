@@ -26,6 +26,7 @@ type User struct {
 //it is formatted correctly, and tries to create an account in
 //the database
 func RegisterNewAccount(w http.ResponseWriter, r *http.Request) {
+	//Creates a struct used to store data decoded from the body
 	user := struct {
 		Email          string `json: "email"`
 		Username       string `json: "username"`
@@ -63,14 +64,14 @@ func RegisterNewAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 func Login(w http.ResponseWriter, r *http.Request) {
-	session, _ := sessionStore.Get(r, "auth-token")
+	session, _ := sessionStore.Get(r, "Access-token")
 
 	if session.Values["userID"] != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		JSONResponse(struct{}{}, w)
 		return
 	}
-
+	//Creates a struct used to store data decoded from the body
 	userRequestData := struct {
 		Email    string `json: "email"`
 		Password string `json: "password"`
@@ -88,7 +89,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	hashedPassword := GenerateSecurePassword(userRequestData.Password, userDatabaseData.Salt)
-
+	//checks if salted hashed password from database matches the sent in salted hashed password
 	if hashedPassword != userDatabaseData.Password {
 		w.WriteHeader(http.StatusUnauthorized)
 		JSONResponse(struct{}{}, w)
@@ -103,7 +104,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetAccountInfo(w http.ResponseWriter, r *http.Request) {
-	session, _ := sessionStore.Get(r, "auth-token")
+	session, _ := sessionStore.Get(r, "Access-token")
 
 	if session.Values["userID"] == nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -139,6 +140,7 @@ func GenerateSecurePassword(password string, salt string) string {
 func CheckEmailAvailability(email string) error {
 	var user User
 
+	//if no record of the email is found, returns an error
 	if !db.Find(&user, "email = ?", email).RecordNotFound() {
 		return errors.New("Email exists")
 	}
@@ -184,6 +186,7 @@ func ComparePasswords(passwordOne string, passwordTwo string) error {
 func CreateAccessToken(w http.ResponseWriter, r *http.Request, user User) {
 	session, _ := sessionStore.Get(r, "Access-token")
 
+	//Access-token values
 	session.Values["userID"] = user.ID
 	session.Options.MaxAge = 60 * 20
 	session.Options.HttpOnly = true
