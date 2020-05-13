@@ -26,7 +26,9 @@ func RefreshToken(w http.ResponseWriter, r *http.Request) {
 func HandleFunctions() {
 	r := mux.NewRouter()
 	r.HandleFunc("/", LandingPage)
+	r.HandleFunc("/login", IsLoggedIn).Methods("GET")
 	r.HandleFunc("/login", Login).Methods("POST")
+	r.HandleFunc("/login", Logout).Methods("DELETE")
 	r.HandleFunc("/account", RegisterNewAccount).Methods("POST")
 	r.HandleFunc("/account", GetAccountInfo).Methods("GET")
 	r.HandleFunc("/events", CreateEvent).Methods("POST")
