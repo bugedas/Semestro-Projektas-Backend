@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/gofrs/uuid"
+	"github.com/gorilla/sessions"
 	"github.com/jinzhu/gorm"
 	"golang.org/x/crypto/pbkdf2"
 )
@@ -96,7 +97,8 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	CreateAccessToken(w, r, userDatabaseData)
+	session = CreateAccessToken(userDatabaseData, session)
+	session.Save(r, w)
 
 	w.WriteHeader(http.StatusAccepted)
 	JSONResponse(struct{}{}, w)
@@ -183,12 +185,55 @@ func ComparePasswords(passwordOne string, passwordTwo string) error {
 	return nil
 }
 
-func CreateAccessToken(w http.ResponseWriter, r *http.Request, user User) {
-	session, _ := sessionStore.Get(r, "Access-token")
-
+func CreateAccessToken(user User, session *sessions.Session) *sessions.Session {
 	//Access-token values
 	session.Values["userID"] = user.ID
-	session.Options.MaxAge = 60 * 20
+	session.Options.MaxAge = 60 * 60 * 24
 	session.Options.HttpOnly = true
-	session.Save(r, w)
+	return session
+}
+
+func IsLoggedIn(w http.ResponseWriter, r *http.Request) {
+	session, err := sessionStore.Get(r, "Access-token")
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	if session.Values["userID"] == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	JSONResponse(struct{}{}, w)
+	return
+}
+
+func Logout(w http.ResponseWriter, r *http.Request) {
+	sessionAccess, err := sessionStore.Get(r, "Access-token")
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	sessionRefresh, err := sessionStore.Get(r, "Refresh-token")
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	sessionAccess.Options.MaxAge = -1
+	sessionRefresh.Options.MaxAge = -1
+
+	sessionAccess.Save(r, w)
+	sessionRefresh.Save(r, w)
+
+	w.WriteHeader(http.StatusOK)
+	JSONResponse(struct{}{}, w)
+	return
 }
