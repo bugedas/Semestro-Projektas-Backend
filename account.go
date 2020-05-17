@@ -18,8 +18,8 @@ type User struct {
 	Email    string
 	Username string
 	Gender   string
-	Password string
-	Salt     string
+	Password string   `gorm:"PRELOAD:false"`
+	Salt     string   `gorm:"PRELOAD:false"`
 	Events   []*Event `gorm:"many2many:events_joined;"`
 }
 
@@ -115,9 +115,36 @@ func GetAccountInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user User
-	db.First(&user, session.Values["userID"].(uint))
+	db.Select("username, gender").First(&user, session.Values["userID"].(uint))
 
 	JSONResponse(user, w)
+
+	w.WriteHeader(http.StatusOK)
+	JSONResponse(struct{}{}, w)
+	return
+}
+
+func EditAccountInfo(w http.ResponseWriter, r *http.Request) {
+	session, _ := sessionStore.Get(r, "Access-token")
+
+	if session.Values["userID"] == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	var user User
+	tx := db.Where("id = ?", session.Values["userID"]).First(&user)
+
+	var updatedUser User
+	json.NewDecoder(r.Body).Decode(&updatedUser)
+
+	if updatedUser.Username != "" {
+		tx.Model(&user).Updates(User{Username: updatedUser.Username})
+	}
+	if updatedUser.Gender != "" {
+		tx.Model(&user).Updates(User{Gender: updatedUser.Gender})
+	}
 
 	w.WriteHeader(http.StatusOK)
 	JSONResponse(struct{}{}, w)
