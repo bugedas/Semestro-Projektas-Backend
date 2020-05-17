@@ -17,6 +17,7 @@ type Event struct {
 	Creator     User `gorm:"foreignkey:CreatorID"`
 	CreatorID   uint
 	Description string    `json: "description"`
+	Sport       string    `json: "sport"`
 	Location    string    `json: "location"`
 	StartTime   time.Time `json: "startTime"`
 	EndTime     time.Time `json: "EndTime"`
@@ -35,8 +36,9 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 	db.First(&user, session.Values["userID"].(uint))
 	var newEvent Event
-	newEvent.Creator = user
+
 	err := json.NewDecoder(r.Body).Decode(&newEvent)
+	newEvent.Creator = user
 
 	if err != nil {
 		log.Println(err)
@@ -164,7 +166,11 @@ func GetEvents(w http.ResponseWriter, r *http.Request) {
 		tx = tx.Where("creator = ?", creatorID)
 	}
 
-	tx.Preload("Users").Find(&events)
+	tx.Preload("Users", func(db *gorm.DB) *gorm.DB {
+		return db.Select("id, email, gender, username")
+	}).Preload("Creator", func(db *gorm.DB) *gorm.DB {
+		return db.Select("id, email, gender, username")
+	}).Find(&events)
 
 	if len(events) == 0 {
 		w.WriteHeader(http.StatusBadRequest)
@@ -218,6 +224,63 @@ func DeleteEvent(w http.ResponseWriter, r *http.Request) {
 
 	//Deletes associations (users that joined the event)
 	db.Model(&event).Association("Users").Delete(&event.Users)
+
+	w.WriteHeader(http.StatusOK)
+	JSONResponse(struct{}{}, w)
+	return
+}
+
+func EditEvent(w http.ResponseWriter, r *http.Request) {
+	//Loads creator id from authentication token
+	session, _ := sessionStore.Get(r, "Access-token")
+
+	if session.Values["userID"] == nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+	userID := session.Values["userID"].(uint)
+
+	//Gets id from /events/{id}
+	params := mux.Vars(r)
+	eventID, err := strconv.Atoi(params["id"])
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	//Loads event with joined users preloaded
+	var event Event
+	tx := db.Preload("Users").Where("id = ?", eventID).First(&event)
+
+	//checks if the user that is trying to delete event is its creator
+	if event.CreatorID != userID {
+		w.WriteHeader(http.StatusUnauthorized)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	var updatedEvent Event
+	json.NewDecoder(r.Body).Decode(&updatedEvent)
+
+	if updatedEvent.Description != "" {
+		tx.Model(&event).Updates(Event{Description: updatedEvent.Description})
+	}
+	if updatedEvent.StartTime.Year() != 1 {
+		tx.Model(&event).Updates(Event{StartTime: updatedEvent.StartTime})
+	}
+	if updatedEvent.EndTime.Year() != 1 {
+		tx.Model(&event).Updates(Event{EndTime: updatedEvent.EndTime})
+	}
+
+	// //Edits the record in database
+	// if tx.Model(&event).Updates(Event{Description: updatedEvent.Description}).RowsAffected == 0 {
+	// 	w.WriteHeader(http.StatusBadRequest)
+	// 	JSONResponse(struct{}{}, w)
+	// 	return
+	// }
 
 	w.WriteHeader(http.StatusOK)
 	JSONResponse(struct{}{}, w)
