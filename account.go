@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/gofrs/uuid"
+	"github.com/gorilla/sessions"
 	"github.com/jinzhu/gorm"
 	"golang.org/x/crypto/pbkdf2"
 )
@@ -17,8 +18,8 @@ type User struct {
 	Email    string
 	Username string
 	Gender   string
-	Password string
-	Salt     string
+	Password string   `gorm:"PRELOAD:false"`
+	Salt     string   `gorm:"PRELOAD:false"`
 	Events   []*Event `gorm:"many2many:events_joined;"`
 }
 
@@ -26,6 +27,7 @@ type User struct {
 //it is formatted correctly, and tries to create an account in
 //the database
 func RegisterNewAccount(w http.ResponseWriter, r *http.Request) {
+	//Creates a struct used to store data decoded from the body
 	user := struct {
 		Email          string `json: "email"`
 		Username       string `json: "username"`
@@ -63,14 +65,14 @@ func RegisterNewAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 func Login(w http.ResponseWriter, r *http.Request) {
-	session, _ := sessionStore.Get(r, "auth-token")
+	session, _ := sessionStore.Get(r, "Access-token")
 
 	if session.Values["userID"] != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		JSONResponse(struct{}{}, w)
 		return
 	}
-
+	//Creates a struct used to store data decoded from the body
 	userRequestData := struct {
 		Email    string `json: "email"`
 		Password string `json: "password"`
@@ -88,14 +90,15 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	hashedPassword := GenerateSecurePassword(userRequestData.Password, userDatabaseData.Salt)
-
+	//checks if salted hashed password from database matches the sent in salted hashed password
 	if hashedPassword != userDatabaseData.Password {
 		w.WriteHeader(http.StatusUnauthorized)
 		JSONResponse(struct{}{}, w)
 		return
 	}
 
-	CreateAccessToken(w, r, userDatabaseData)
+	session = CreateAccessToken(userDatabaseData, session)
+	session.Save(r, w)
 
 	w.WriteHeader(http.StatusAccepted)
 	JSONResponse(struct{}{}, w)
@@ -103,7 +106,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetAccountInfo(w http.ResponseWriter, r *http.Request) {
-	session, _ := sessionStore.Get(r, "auth-token")
+	session, _ := sessionStore.Get(r, "Access-token")
 
 	if session.Values["userID"] == nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -112,9 +115,36 @@ func GetAccountInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user User
-	db.First(&user, session.Values["userID"].(uint))
+	db.Select("username, gender").First(&user, session.Values["userID"].(uint))
 
 	JSONResponse(user, w)
+
+	w.WriteHeader(http.StatusOK)
+	JSONResponse(struct{}{}, w)
+	return
+}
+
+func EditAccountInfo(w http.ResponseWriter, r *http.Request) {
+	session, _ := sessionStore.Get(r, "Access-token")
+
+	if session.Values["userID"] == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	var user User
+	tx := db.Where("id = ?", session.Values["userID"]).First(&user)
+
+	var updatedUser User
+	json.NewDecoder(r.Body).Decode(&updatedUser)
+
+	if updatedUser.Username != "" {
+		tx.Model(&user).Updates(User{Username: updatedUser.Username})
+	}
+	if updatedUser.Gender != "" {
+		tx.Model(&user).Updates(User{Gender: updatedUser.Gender})
+	}
 
 	w.WriteHeader(http.StatusOK)
 	JSONResponse(struct{}{}, w)
@@ -139,6 +169,7 @@ func GenerateSecurePassword(password string, salt string) string {
 func CheckEmailAvailability(email string) error {
 	var user User
 
+	//if no record of the email is found, returns an error
 	if !db.Find(&user, "email = ?", email).RecordNotFound() {
 		return errors.New("Email exists")
 	}
@@ -181,11 +212,55 @@ func ComparePasswords(passwordOne string, passwordTwo string) error {
 	return nil
 }
 
-func CreateAccessToken(w http.ResponseWriter, r *http.Request, user User) {
-	session, _ := sessionStore.Get(r, "Access-token")
-
+func CreateAccessToken(user User, session *sessions.Session) *sessions.Session {
+	//Access-token values
 	session.Values["userID"] = user.ID
-	session.Options.MaxAge = 60 * 20
+	session.Options.MaxAge = 60 * 60 * 24
 	session.Options.HttpOnly = true
-	session.Save(r, w)
+	return session
+}
+
+func IsLoggedIn(w http.ResponseWriter, r *http.Request) {
+	session, err := sessionStore.Get(r, "Access-token")
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	if session.Values["userID"] == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	JSONResponse(struct{}{}, w)
+	return
+}
+
+func Logout(w http.ResponseWriter, r *http.Request) {
+	sessionAccess, err := sessionStore.Get(r, "Access-token")
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	sessionRefresh, err := sessionStore.Get(r, "Refresh-token")
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	sessionAccess.Options.MaxAge = -1
+	sessionRefresh.Options.MaxAge = -1
+
+	sessionAccess.Save(r, w)
+	sessionRefresh.Save(r, w)
+
+	w.WriteHeader(http.StatusOK)
+	JSONResponse(struct{}{}, w)
+	return
 }
