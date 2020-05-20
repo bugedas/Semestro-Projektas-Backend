@@ -1,0 +1,89 @@
+PROFILIO INFO|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+/ patikrinti ar prisijunges / ------------------------------------------------------------
+GET request								localhost:8000/login
+
+/ Atsijungti / ---------------------------------------------------------------------------
+DELETE request								localhost:8000/login
+
+/ prisijungimas / ------------------------------------------------------------------------
+POST request								localhost:8000/login
+
+{
+	"email": "vardas@gmail.com",
+	"password": "Password1"
+}
+
+/ registracija /  -------------------------------------------------------------------------
+POST request								localhost:8000/account
+
+{
+	"email": "vardas@gmail.com",
+	"username": "vardas",
+	"gender": "gender",
+	"password": "Password1",
+	"repeatPassword": "Password1"
+}
+
+/ Profilio gavimas / -----------------------------------------------------------------------
+Get request								localhost:8000/account
+
+/ duomenu keitimas /  -------------------------------------------------------------------------
+PATCH request								localhost:8000/account
+LAUKU KURIU NEREDAGUOJAM NERASOM, t.y ne tuscios reiksmes, o eilutes NEBUVIMAS
+{
+	"gender": "genderis",
+	"description": "descriptionas"
+}
+PROFILIO INFO|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+
+EVENT INFO||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+/ create event / --------------------------------------------------------------------------
+Galima tik prisijungus t.y atsiuntus auth token
+POST request								localhost:8000/events 
+
+{
+	"description": "very long description",
+	"sport": "Futbolas",
+	"location": "Kaunas",
+	"startTime": "2020-04-14T11:48:12Z",
+	"endTime": "2020-04-15T11:48:12Z",
+	"limit": 5
+	
+}
+
+/ edit event / --------------------------------------------------------------------------
+Galima tik prisijungus t.y atsiuntus auth token
+PATCH request								localhost:8000/events/{id}
+LAUKU KURIU NEREDAGUOJAM NERASOM, t.y ne tuscios reiksmes, o eilutes NEBUVIMAS
+{
+	"description": "very long edited description",
+	"startTime": "2020-04-18T11:48:12Z",
+	"endTime": "2020-04-21T11:48:12Z",
+	"limit": 3
+}
+
+/ delete event / --------------------------------------------------------------------------
+DELETE request, gali tik savininkas								localhost:8000/events/{id}
+
+
+/ get events /  ---------------------------------------------------------------------------
+GET request
+
+localhost:8000/events?location=miestas
+arba
+localhost:8000/events?creatorID=id
+arba
+localhost:8000/events?location=miestas&creatorID=id
+
+/ Join event /  ----------------------------------------------------------------------------
+tik ne owner gali joinint event,
+reikia atsiusti auth token.
+Vietoj {id} tiesiog skaicius pvz /events/1/users
+PATCH request												localhost:8000/events/{id}/users
+
+/ Leave event / ----------------------------------------------------------------------------
+leave tai ne delete event, leave gali prisijunge,
+delete gali tik kurejas
+DELETE request	
+											localhost:8000/events/{id}/users
+EVENT INFO||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
