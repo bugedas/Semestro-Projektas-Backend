@@ -15,12 +15,13 @@ import (
 
 type User struct {
 	gorm.Model
-	Email    string
-	Username string
-	Gender   string
-	Password string   `gorm:"PRELOAD:false"`
-	Salt     string   `gorm:"PRELOAD:false"`
-	Events   []*Event `gorm:"many2many:events_joined;"`
+	Email       string
+	Username    string
+	Gender      string
+	Description string
+	Password    string   `gorm:"PRELOAD:false"`
+	Salt        string   `gorm:"PRELOAD:false"`
+	Events      []*Event `gorm:"many2many:events_joined;"`
 }
 
 //RegisterPageHandler decodes user sent in data, verifies that
@@ -34,7 +35,8 @@ func RegisterNewAccount(w http.ResponseWriter, r *http.Request) {
 		Password       string `json: "password"`
 		RepeatPassword string `json: "repeatPassword"`
 		Gender         string `json: "gender"`
-	}{"", "", "", "", ""}
+		Description    string `json: "description"`
+	}{"", "", "", "", "", ""}
 
 	err := json.NewDecoder(r.Body).Decode(&user)
 
@@ -115,7 +117,7 @@ func GetAccountInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user User
-	db.Select("username, gender").First(&user, session.Values["userID"].(uint))
+	db.Select("username, gender, description,email").First(&user, session.Values["userID"].(uint))
 
 	JSONResponse(user, w)
 
@@ -144,6 +146,9 @@ func EditAccountInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	if updatedUser.Gender != "" {
 		tx.Model(&user).Updates(User{Gender: updatedUser.Gender})
+	}
+	if updatedUser.Description != "" {
+		tx.Model(&user).Updates(User{Description: updatedUser.Description})
 	}
 
 	w.WriteHeader(http.StatusOK)

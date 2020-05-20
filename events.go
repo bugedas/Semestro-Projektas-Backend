@@ -15,12 +15,14 @@ import (
 type Event struct {
 	gorm.Model
 	Creator     User `gorm:"foreignkey:CreatorID"`
+	CreatorName string
 	CreatorID   uint
 	Description string    `json: "description"`
 	Sport       string    `json: "sport"`
 	Location    string    `json: "location"`
 	StartTime   time.Time `json: "startTime"`
 	EndTime     time.Time `json: "EndTime"`
+	Limit       int       `json: "limit"`
 	Users       []*User   `gorm:"many2many:events_joined;"`
 }
 
@@ -36,10 +38,16 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 	db.First(&user, session.Values["userID"].(uint))
 	var newEvent Event
+<<<<<<< HEAD
 
 	err := json.NewDecoder(r.Body).Decode(&newEvent)
 	newEvent.Creator = user
+=======
+>>>>>>> Justas
 
+	err := json.NewDecoder(r.Body).Decode(&newEvent)
+	newEvent.Creator = user
+	newEvent.CreatorName = user.Username
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -54,6 +62,7 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func JoinEvent(w http.ResponseWriter, r *http.Request) {
+
 	//Get user id from auth token
 	session, _ := sessionStore.Get(r, "Access-token")
 
@@ -79,7 +88,13 @@ func JoinEvent(w http.ResponseWriter, r *http.Request) {
 
 	var selectedEvent Event
 	db.Preload("Users").First(&selectedEvent, "id = ?", eventID)
-
+	if selectedEvent.Limit != 0 {
+		if selectedEvent.Limit < len(selectedEvent.Users) {
+			w.WriteHeader(http.StatusInsufficientStorage)
+			JSONResponse(struct{}{}, w)
+			return
+		}
+	}
 	//Check if event and user exist
 	if selectedEvent.ID == 0 || user.ID == 0 {
 		w.WriteHeader(http.StatusBadRequest)
@@ -274,7 +289,13 @@ func EditEvent(w http.ResponseWriter, r *http.Request) {
 	if updatedEvent.EndTime.Year() != 1 {
 		tx.Model(&event).Updates(Event{EndTime: updatedEvent.EndTime})
 	}
+<<<<<<< HEAD
 
+=======
+	if updatedEvent.Limit != 0 {
+		tx.Model(&event).Updates(Event{Limit: updatedEvent.Limit})
+	}
+>>>>>>> Justas
 	// //Edits the record in database
 	// if tx.Model(&event).Updates(Event{Description: updatedEvent.Description}).RowsAffected == 0 {
 	// 	w.WriteHeader(http.StatusBadRequest)
