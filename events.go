@@ -15,6 +15,7 @@ import (
 type Event struct {
 	gorm.Model
 	Creator     User `gorm:"foreignkey:CreatorID"`
+	CreatorName string
 	CreatorID   uint
 	Description string    `json: "description"`
 	Sport       string    `json: "sport"`
@@ -40,7 +41,7 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&newEvent)
 	newEvent.Creator = user
-
+	newEvent.CreatorName = user.Username
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusBadRequest)

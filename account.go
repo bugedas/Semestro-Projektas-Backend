@@ -117,7 +117,7 @@ func GetAccountInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user User
-	db.Select("username, gender, description").First(&user, session.Values["userID"].(uint))
+	db.Select("username, gender, description,email").First(&user, session.Values["userID"].(uint))
 
 	JSONResponse(user, w)
 
