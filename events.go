@@ -38,12 +38,6 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 	db.First(&user, session.Values["userID"].(uint))
 	var newEvent Event
-<<<<<<< HEAD
-
-	err := json.NewDecoder(r.Body).Decode(&newEvent)
-	newEvent.Creator = user
-=======
->>>>>>> Justas
 
 	err := json.NewDecoder(r.Body).Decode(&newEvent)
 	newEvent.Creator = user
@@ -289,13 +283,9 @@ func EditEvent(w http.ResponseWriter, r *http.Request) {
 	if updatedEvent.EndTime.Year() != 1 {
 		tx.Model(&event).Updates(Event{EndTime: updatedEvent.EndTime})
 	}
-<<<<<<< HEAD
-
-=======
 	if updatedEvent.Limit != 0 {
 		tx.Model(&event).Updates(Event{Limit: updatedEvent.Limit})
 	}
->>>>>>> Justas
 	// //Edits the record in database
 	// if tx.Model(&event).Updates(Event{Description: updatedEvent.Description}).RowsAffected == 0 {
 	// 	w.WriteHeader(http.StatusBadRequest)
