@@ -9,6 +9,7 @@ Caddyfile
 *.txt
 *.bat
 *.sum
+backend
 
 # Test binary, built with `go test -c`
 *.test
