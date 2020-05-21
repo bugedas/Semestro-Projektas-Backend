@@ -235,6 +235,10 @@ func CheckEmailAvailability(email string) error {
 //CreateNewAccount creates an account if the sent data
 //is correctly formatted
 func PerformUserDataChecks(email string, password string, repeatedPassword string) (httpStatus int, err error) {
+	if emailRegex.MatchString(email) != true {
+		return http.StatusNotAcceptable, errors.New("Bad email format")
+	}
+
 	err = CheckEmailAvailability(email)
 	if err != nil {
 		return http.StatusNotAcceptable, err
@@ -245,7 +249,7 @@ func PerformUserDataChecks(email string, password string, repeatedPassword strin
 		return http.StatusBadRequest, err
 	}
 
-	return http.StatusCreated, nil
+	return http.StatusOK, nil
 }
 
 //ComparePasswords checks that, while registering a new account,
