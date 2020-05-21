@@ -15,12 +15,12 @@ import (
 
 type User struct {
 	gorm.Model
-	Email       string
-	Username    string
-	Gender      string
-	Description string
-	Password    string   `gorm:"PRELOAD:false"`
-	Salt        string   `gorm:"PRELOAD:false"`
+	Email       string   `gorm:"size:50;not null`
+	Username    string   `gorm:"size:30;`
+	Gender      string   `gorm:"size:20`
+	Description string   `gorm:"size:255;not null`
+	Password    string   `gorm:"PRELOAD:false;not null"`
+	Salt        string   `gorm:"PRELOAD:false;size:64;not null"`
 	Events      []*Event `gorm:"many2many:events_joined;"`
 }
 
@@ -117,7 +117,7 @@ func GetAccountInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user User
-	db.Select("username, gender, description,email").First(&user, session.Values["userID"].(uint))
+	db.Select("username, gender, description, email").First(&user, session.Values["userID"].(uint))
 
 	JSONResponse(user, w)
 
