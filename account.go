@@ -126,6 +126,56 @@ func GetAccountInfo(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func EditPassword(w http.ResponseWriter, r *http.Request) {
+	session, _ := sessionStore.Get(r, "Access-token")
+
+	if session.Values["userID"] == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	passwordData := struct {
+		Password          string `json: "password"`
+		NewPassword       string `json: "newPassword"`
+		NewPasswordRepeat string `json: "newPasswordRepeat"`
+	}{"", "", ""}
+
+	json.NewDecoder(r.Body).Decode(&passwordData)
+
+	var user User
+	// Finds user by id in database, if no user, then returns "bad request"
+	if db.Find(&user, "id = ?", session.Values["userID"]).RecordNotFound() {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	hashedPassword := GenerateSecurePassword(passwordData.Password, user.Salt)
+	//checks if sent in password matches the database stored password
+	if hashedPassword != user.Password {
+		w.WriteHeader(http.StatusUnauthorized)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	//checks newPassword and newPasswordRepeat are the same
+	err := ComparePasswords(passwordData.NewPassword, passwordData.NewPasswordRepeat)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	//Hashes new password and puts it in user
+	newPassword := GenerateSecurePassword(passwordData.NewPassword, user.Salt)
+	db.Model(&user).Updates(User{Password: newPassword})
+
+	w.WriteHeader(http.StatusOK)
+	JSONResponse(struct{}{}, w)
+	return
+}
+
 func EditAccountInfo(w http.ResponseWriter, r *http.Request) {
 	session, _ := sessionStore.Get(r, "Access-token")
 
