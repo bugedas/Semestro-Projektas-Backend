@@ -166,9 +166,7 @@ func GetEvents(w http.ResponseWriter, r *http.Request) {
 	creatorID := keys.Get("creatorID")
 	var events []Event
 
-	tx := db.Preload("Users").Preload("Creator", func(db *gorm.DB) *gorm.DB {
-		return db.Select("id, email, gender, username")
-	}).Find(&events)
+	tx := db.Set("gorm:auto_preload", true).Preload("Users").Preload("Creator").Find(&events)
 
 	if location != "" {
 		tx = tx.Where("location = ?", location)
