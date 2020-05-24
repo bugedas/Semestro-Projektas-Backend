@@ -21,7 +21,7 @@ type Event struct {
 	Sport       string    `json: "sport"`
 	Location    string    `json: "location"`
 	StartTime   time.Time `json: "startTime"`
-	EndTime     time.Time `json: "EndTime"`
+	EndTime     time.Time `json: "endTime"`
 	Limit       int       `json: "limit"`
 	Users       []*User   `gorm:"many2many:events_joined;"`
 }

@@ -29,6 +29,7 @@ func HandleFunctions() {
 	r.HandleFunc("/login", IsLoggedIn).Methods("GET")
 	r.HandleFunc("/login", Login).Methods("POST")
 	r.HandleFunc("/login", Logout).Methods("DELETE")
+	r.HandleFunc("/login", EditPassword).Methods("PATCH")
 
 	r.HandleFunc("/account", RegisterNewAccount).Methods("POST")
 	r.HandleFunc("/account", GetAccountInfo).Methods("GET")

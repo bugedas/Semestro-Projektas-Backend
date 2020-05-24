@@ -15,12 +15,12 @@ import (
 
 type User struct {
 	gorm.Model
-	Email       string
-	Username    string
-	Gender      string
-	Description string
-	Password    string   `gorm:"PRELOAD:false"`
-	Salt        string   `gorm:"PRELOAD:false"`
+	Email       string   `gorm:"size:50;not null`
+	Username    string   `gorm:"size:30;`
+	Gender      string   `gorm:"size:20`
+	Description string   `gorm:"size:255;not null`
+	Password    string   `gorm:"PRELOAD:false;not null"`
+	Salt        string   `gorm:"PRELOAD:false;size:64;not null"`
 	Events      []*Event `gorm:"many2many:events_joined;"`
 }
 
@@ -117,9 +117,59 @@ func GetAccountInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user User
-	db.Select("username, gender, description,email").First(&user, session.Values["userID"].(uint))
+	db.Select("username, gender, description, email").First(&user, session.Values["userID"].(uint))
 
 	JSONResponse(user, w)
+
+	w.WriteHeader(http.StatusOK)
+	JSONResponse(struct{}{}, w)
+	return
+}
+
+func EditPassword(w http.ResponseWriter, r *http.Request) {
+	session, _ := sessionStore.Get(r, "Access-token")
+
+	if session.Values["userID"] == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	passwordData := struct {
+		Password          string `json: "password"`
+		NewPassword       string `json: "newPassword"`
+		NewPasswordRepeat string `json: "newPasswordRepeat"`
+	}{"", "", ""}
+
+	json.NewDecoder(r.Body).Decode(&passwordData)
+
+	var user User
+	// Finds user by id in database, if no user, then returns "bad request"
+	if db.Find(&user, "id = ?", session.Values["userID"]).RecordNotFound() {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	hashedPassword := GenerateSecurePassword(passwordData.Password, user.Salt)
+	//checks if sent in password matches the database stored password
+	if hashedPassword != user.Password {
+		w.WriteHeader(http.StatusUnauthorized)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	//checks newPassword and newPasswordRepeat are the same
+	err := ComparePasswords(passwordData.NewPassword, passwordData.NewPasswordRepeat)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	//Hashes new password and puts it in user
+	newPassword := GenerateSecurePassword(passwordData.NewPassword, user.Salt)
+	db.Model(&user).Updates(User{Password: newPassword})
 
 	w.WriteHeader(http.StatusOK)
 	JSONResponse(struct{}{}, w)
@@ -185,6 +235,10 @@ func CheckEmailAvailability(email string) error {
 //CreateNewAccount creates an account if the sent data
 //is correctly formatted
 func PerformUserDataChecks(email string, password string, repeatedPassword string) (httpStatus int, err error) {
+	if emailRegex.MatchString(email) != true {
+		return http.StatusNotAcceptable, errors.New("Bad email format")
+	}
+
 	err = CheckEmailAvailability(email)
 	if err != nil {
 		return http.StatusNotAcceptable, err
@@ -195,7 +249,7 @@ func PerformUserDataChecks(email string, password string, repeatedPassword strin
 		return http.StatusBadRequest, err
 	}
 
-	return http.StatusCreated, nil
+	return http.StatusOK, nil
 }
 
 //ComparePasswords checks that, while registering a new account,
