@@ -9,12 +9,14 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
-	"github.com/jinzhu/gorm"
 )
 
 type Event struct {
-	gorm.Model
-	Creator     User `gorm:"foreignkey:CreatorID"`
+	ID          uint       `json: "-" gorm:"primary_key"`
+	CreatedAt   time.Time  `json: "-"`
+	UpdatedAt   time.Time  `json: "-"`
+	DeletedAt   *time.Time `json: "-"`
+	Creator     User       `gorm:"foreignkey:CreatorID"`
 	CreatorName string
 	CreatorID   uint
 	Description string    `json: "description"`
