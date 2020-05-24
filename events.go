@@ -166,7 +166,7 @@ func GetEvents(w http.ResponseWriter, r *http.Request) {
 	creatorID := keys.Get("creatorID")
 	var events []Event
 
-	tx := db.Table("events")
+	tx := db.Set("gorm:auto_preload", true).Preload("Users").Preload("Creator").Find(&events)
 
 	if location != "" {
 		tx = tx.Where("location = ?", location)
@@ -174,12 +174,6 @@ func GetEvents(w http.ResponseWriter, r *http.Request) {
 	if creatorID != "" {
 		tx = tx.Where("creator = ?", creatorID)
 	}
-
-	tx.Preload("Users", func(db *gorm.DB) *gorm.DB {
-		return db.Select("id, email, gender, username")
-	}).Preload("Creator", func(db *gorm.DB) *gorm.DB {
-		return db.Select("id, email, gender, username")
-	}).Find(&events)
 
 	if len(events) == 0 {
 		w.WriteHeader(http.StatusBadRequest)
