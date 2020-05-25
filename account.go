@@ -21,9 +21,9 @@ type User struct {
 	Email       string     `gorm:"size:50;not null"`
 	Username    string     `gorm:"size:30"`
 	Gender      string     `gorm:"size:20"`
-	Description string     `gorm:"size:255;not null"`
+	Description string     `gorm:"size:255"`
 	Password    string     `json:"-" gorm:"not null"`
-	Salt        string     `json:"-" gorm:"false;size:64;not null"`
+	Salt        string     `json:"-" gorm:"size:64;not null"`
 	Events      []*Event   `json:"-" gorm:"many2many:events_joined;"`
 }
 
