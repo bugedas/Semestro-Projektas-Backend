@@ -14,7 +14,7 @@ import (
 )
 
 type User struct {
-	ID          uint       `json:"-" gorm:"primary_key"`
+	ID          uint       `gorm:"primary_key"`
 	CreatedAt   time.Time  `json:"-"`
 	UpdatedAt   time.Time  `json:"-"`
 	DeletedAt   *time.Time `json:"-"`
@@ -113,19 +113,23 @@ func Login(w http.ResponseWriter, r *http.Request) {
 func GetAccountInfo(w http.ResponseWriter, r *http.Request) {
 	session, _ := sessionStore.Get(r, "Access-token")
 
-	if session.Values["userID"] == nil {
+	keys := r.URL.Query()
+	id := keys.Get("id")
+
+	var user User
+
+	if id != "" {
+		db.First(&user, id)
+	} else if session.Values["userID"] != nil {
+		db.First(&user, session.Values["userID"].(uint))
+	} else {
 		w.WriteHeader(http.StatusBadRequest)
 		JSONResponse(struct{}{}, w)
 		return
 	}
 
-	var user User
-	db.First(&user, session.Values["userID"].(uint))
-
 	JSONResponse(user, w)
-
 	w.WriteHeader(http.StatusOK)
-	JSONResponse(struct{}{}, w)
 	return
 }
 
