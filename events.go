@@ -82,8 +82,9 @@ func JoinEvent(w http.ResponseWriter, r *http.Request) {
 
 	var selectedEvent Event
 	db.Preload("Users").First(&selectedEvent, "id = ?", eventID)
+
 	if selectedEvent.Limit != 0 {
-		if selectedEvent.Limit < len(selectedEvent.Users) {
+		if selectedEvent.Limit <= len(selectedEvent.Users) {
 			w.WriteHeader(http.StatusInsufficientStorage)
 			JSONResponse(struct{}{}, w)
 			return
