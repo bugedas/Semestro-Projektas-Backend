@@ -6,22 +6,25 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gofrs/uuid"
 	"github.com/gorilla/sessions"
-	"github.com/jinzhu/gorm"
 	"golang.org/x/crypto/pbkdf2"
 )
 
 type User struct {
-	gorm.Model
-	Email       string   `gorm:"size:50;not null"`
-	Username    string   `gorm:"size:30"`
-	Gender      string   `gorm:"size:20"`
-	Description string   `gorm:"size:255;not null"`
-	Password    string   `gorm:"not null;PRELOAD:false"`
-	Salt        string   `gorm:"false;size:64;not null;PRELOAD:false"`
-	Events      []*Event `gorm:"many2many:events_joined;"`
+	ID          uint       `gorm:"primary_key"`
+	CreatedAt   time.Time  `json:"-"`
+	UpdatedAt   time.Time  `json:"-"`
+	DeletedAt   *time.Time `json:"-"`
+	Email       string     `gorm:"size:50;not null"`
+	Username    string     `gorm:"size:30"`
+	Gender      string     `gorm:"size:20"`
+	Description string     `gorm:"size:255"`
+	Password    string     `json:"-" gorm:"not null"`
+	Salt        string     `json:"-" gorm:"size:64;not null"`
+	Events      []*Event   `json:"-" gorm:"many2many:events_joined;"`
 }
 
 //RegisterPageHandler decodes user sent in data, verifies that
@@ -110,19 +113,23 @@ func Login(w http.ResponseWriter, r *http.Request) {
 func GetAccountInfo(w http.ResponseWriter, r *http.Request) {
 	session, _ := sessionStore.Get(r, "Access-token")
 
-	if session.Values["userID"] == nil {
+	keys := r.URL.Query()
+	id := keys.Get("id")
+
+	var user User
+
+	if id != "" {
+		db.First(&user, id)
+	} else if session.Values["userID"] != nil {
+		db.First(&user, session.Values["userID"].(uint))
+	} else {
 		w.WriteHeader(http.StatusBadRequest)
 		JSONResponse(struct{}{}, w)
 		return
 	}
 
-	var user User
-	db.Select("username, gender, description, email").First(&user, session.Values["userID"].(uint))
-
 	JSONResponse(user, w)
-
 	w.WriteHeader(http.StatusOK)
-	JSONResponse(struct{}{}, w)
 	return
 }
 

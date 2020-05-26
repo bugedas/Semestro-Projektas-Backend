@@ -11,6 +11,7 @@ backend
 *.bat
 *.sum
 backend
+Semestro-Projektas-Backend
 
 # Test binary, built with `go test -c`
 *.test
