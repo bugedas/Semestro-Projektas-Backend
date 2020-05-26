@@ -9,25 +9,26 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
-	"github.com/jinzhu/gorm"
 )
 
 type Event struct {
-	gorm.Model
-	Creator     User `gorm:"foreignkey:CreatorID"`
+	ID          uint       `json: "-" gorm:"primary_key"`
+	CreatedAt   time.Time  `json: "-"`
+	UpdatedAt   time.Time  `json: "-"`
+	DeletedAt   *time.Time `json: "-"`
+	Creator     User       `gorm:"foreignkey:CreatorID"`
 	CreatorName string
 	CreatorID   uint
 	Description string    `json: "description"`
 	Sport       string    `json: "sport"`
 	Location    string    `json: "location"`
 	StartTime   time.Time `json: "startTime"`
-	EndTime     time.Time `json: "EndTime"`
+	EndTime     time.Time `json: "endTime"`
 	Limit       int       `json: "limit"`
 	Users       []*User   `gorm:"many2many:events_joined;"`
 }
 
 func CreateEvent(w http.ResponseWriter, r *http.Request) {
-	var user User
 	session, _ := sessionStore.Get(r, "Access-token")
 
 	if session.Values["userID"] == nil {
@@ -35,10 +36,12 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 		JSONResponse(struct{}{}, w)
 		return
 	}
-
+	// Get the user that is creating the event
+	var user User
 	db.First(&user, session.Values["userID"].(uint))
-	var newEvent Event
 
+	var newEvent Event
+	// Get event data from json body
 	err := json.NewDecoder(r.Body).Decode(&newEvent)
 	newEvent.Creator = user
 	newEvent.CreatorName = user.Username
@@ -48,15 +51,21 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Create an association between creator_id and a users id
 	db.Model(&newEvent).AddForeignKey("creator_id", "users(id)", "RESTRICT", "RESTRICT")
-	db.Create(&newEvent)
+	// Create event
+	if db.Create(&newEvent).Error != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
 	w.WriteHeader(http.StatusCreated)
 	JSONResponse(struct{}{}, w)
 	return
 }
 
 func JoinEvent(w http.ResponseWriter, r *http.Request) {
-
 	//Get user id from auth token
 	session, _ := sessionStore.Get(r, "Access-token")
 
@@ -76,7 +85,7 @@ func JoinEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Get user and event seperately from provided IDs
+	//Get user and event from provided IDs
 	var user User
 	db.First(&user, session.Values["userID"].(uint))
 
@@ -132,7 +141,7 @@ func LeaveEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Get user and event seperately from provided IDs
+	//Get user and event from provided IDs
 	var user User
 	db.First(&user, session.Values["userID"].(uint))
 
@@ -153,7 +162,7 @@ func LeaveEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Add user to event
+	// Delete user from an event
 	db.Model(&selectedEvent).Association("Users").Delete(&user)
 
 	w.WriteHeader(http.StatusOK)
@@ -162,13 +171,16 @@ func LeaveEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetEvents(w http.ResponseWriter, r *http.Request) {
+	// Gets filtering keys from url. e.x ?location=kaunas&creatorId=1
 	keys := r.URL.Query()
 	location := keys.Get("location")
 	creatorID := keys.Get("creatorID")
 	var events []Event
 
-	tx := db.Table("events")
+	// Preloads user and creator tables for use in event response
+	tx := db.Preload("Users").Preload("Creator").Find(&events)
 
+	// If a certain tag is not null, it is used to filter events
 	if location != "" {
 		tx = tx.Where("location = ?", location)
 	}
@@ -176,12 +188,7 @@ func GetEvents(w http.ResponseWriter, r *http.Request) {
 		tx = tx.Where("creator = ?", creatorID)
 	}
 
-	tx.Preload("Users", func(db *gorm.DB) *gorm.DB {
-		return db.Select("id, email, gender, username")
-	}).Preload("Creator", func(db *gorm.DB) *gorm.DB {
-		return db.Select("id, email, gender, username")
-	}).Find(&events)
-
+	// If no events exist, return Bad request
 	if len(events) == 0 {
 		w.WriteHeader(http.StatusBadRequest)
 		JSONResponse(struct{}{}, w)

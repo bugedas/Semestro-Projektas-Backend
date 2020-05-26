@@ -6,22 +6,25 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gofrs/uuid"
 	"github.com/gorilla/sessions"
-	"github.com/jinzhu/gorm"
 	"golang.org/x/crypto/pbkdf2"
 )
 
 type User struct {
-	gorm.Model
-	Email       string
-	Username    string
-	Gender      string
-	Description string
-	Password    string   `gorm:"PRELOAD:false"`
-	Salt        string   `gorm:"PRELOAD:false"`
-	Events      []*Event `gorm:"many2many:events_joined;"`
+	ID          uint       `gorm:"primary_key"`
+	CreatedAt   time.Time  `json:"-"`
+	UpdatedAt   time.Time  `json:"-"`
+	DeletedAt   *time.Time `json:"-"`
+	Email       string     `gorm:"size:50;not null"`
+	Username    string     `gorm:"size:30"`
+	Gender      string     `gorm:"size:20"`
+	Description string     `gorm:"size:255"`
+	Password    string     `json:"-" gorm:"not null"`
+	Salt        string     `json:"-" gorm:"size:64;not null"`
+	Events      []*Event   `json:"-" gorm:"many2many:events_joined;"`
 }
 
 //RegisterPageHandler decodes user sent in data, verifies that
@@ -110,16 +113,70 @@ func Login(w http.ResponseWriter, r *http.Request) {
 func GetAccountInfo(w http.ResponseWriter, r *http.Request) {
 	session, _ := sessionStore.Get(r, "Access-token")
 
+	keys := r.URL.Query()
+	id := keys.Get("id")
+
+	var user User
+
+	if id != "" {
+		db.First(&user, id)
+	} else if session.Values["userID"] != nil {
+		db.First(&user, session.Values["userID"].(uint))
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	JSONResponse(user, w)
+	w.WriteHeader(http.StatusOK)
+	return
+}
+
+func EditPassword(w http.ResponseWriter, r *http.Request) {
+	session, _ := sessionStore.Get(r, "Access-token")
+
 	if session.Values["userID"] == nil {
 		w.WriteHeader(http.StatusBadRequest)
 		JSONResponse(struct{}{}, w)
 		return
 	}
 
-	var user User
-	db.Select("username, gender, description,email").First(&user, session.Values["userID"].(uint))
+	passwordData := struct {
+		Password          string `json: "password"`
+		NewPassword       string `json: "newPassword"`
+		NewPasswordRepeat string `json: "newPasswordRepeat"`
+	}{"", "", ""}
 
-	JSONResponse(user, w)
+	json.NewDecoder(r.Body).Decode(&passwordData)
+
+	var user User
+	// Finds user by id in database, if no user, then returns "bad request"
+	if db.Find(&user, "id = ?", session.Values["userID"]).RecordNotFound() {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	hashedPassword := GenerateSecurePassword(passwordData.Password, user.Salt)
+	//checks if sent in password matches the database stored password
+	if hashedPassword != user.Password {
+		w.WriteHeader(http.StatusUnauthorized)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	//checks newPassword and newPasswordRepeat are the same
+	err := ComparePasswords(passwordData.NewPassword, passwordData.NewPasswordRepeat)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
+	}
+
+	//Hashes new password and puts it in user
+	newPassword := GenerateSecurePassword(passwordData.NewPassword, user.Salt)
+	db.Model(&user).Updates(User{Password: newPassword})
 
 	w.WriteHeader(http.StatusOK)
 	JSONResponse(struct{}{}, w)
@@ -185,6 +242,10 @@ func CheckEmailAvailability(email string) error {
 //CreateNewAccount creates an account if the sent data
 //is correctly formatted
 func PerformUserDataChecks(email string, password string, repeatedPassword string) (httpStatus int, err error) {
+	if emailRegex.MatchString(email) != true {
+		return http.StatusNotAcceptable, errors.New("Bad email format")
+	}
+
 	err = CheckEmailAvailability(email)
 	if err != nil {
 		return http.StatusNotAcceptable, err
@@ -195,7 +256,7 @@ func PerformUserDataChecks(email string, password string, repeatedPassword strin
 		return http.StatusBadRequest, err
 	}
 
-	return http.StatusCreated, nil
+	return http.StatusOK, nil
 }
 
 //ComparePasswords checks that, while registering a new account,

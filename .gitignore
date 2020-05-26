@@ -5,8 +5,13 @@
 *.so
 *.dylib
 Caddyfile
+backend
 *.zip
 *.txt
+*.bat
+*.sum
+backend
+Semestro-Projektas-Backend
 
 # Test binary, built with `go test -c`
 *.test
@@ -16,3 +21,4 @@ Caddyfile
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+*.exe

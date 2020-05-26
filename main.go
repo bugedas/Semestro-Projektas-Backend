@@ -20,6 +20,7 @@ import (
 var db *gorm.DB
 var sessionStore *gormstore.Store
 var passwordRegex *regexp.Regexp
+var emailRegex *regexp.Regexp
 
 // ------------------------------------------------------------
 type envData struct {
@@ -59,6 +60,7 @@ func GetEnvironmentVariables() (env envData, err error) {
 func main() {
 	//Regular expression for passwords to contain at least one capital letter and one number
 	passwordRegex = regexp.MustCompile(`([A-Z].*=?)([0-9].*=?)|([0-9].*=?)([A-Z].*=?)`)
+	emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
 	//Get database credentials and cookie store secret from environment variables
 	var err error
 	envData, err := GetEnvironmentVariables()
