@@ -178,14 +178,16 @@ func GetEvents(w http.ResponseWriter, r *http.Request) {
 	var events []Event
 
 	// Preloads user and creator tables for use in event response
-	tx := db.Preload("Users").Preload("Creator").Find(&events)
-
 	// If a certain tag is not null, it is used to filter events
 	if location != "" {
-		tx = tx.Where("location = ?", location)
-	}
-	if creatorID != "" {
-		tx = tx.Where("creator = ?", creatorID)
+		if creatorID != "" {
+			db.Preload("Users").Preload("Creator").Where("location = ?", location).Where("creator_id = ?", creatorID).Find(&events)
+		}
+		db.Preload("Users").Preload("Creator").Where("location = ?", location).Find(&events)
+	} else if creatorID != "" {
+		db.Preload("Users").Preload("Creator").Where("creator_id = ?", creatorID).Find(&events)
+	} else {
+		db.Preload("Users").Preload("Creator").Find(&events)
 	}
 
 	// If no events exist, return Bad request
