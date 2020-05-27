@@ -187,7 +187,7 @@ func GetEvents(w http.ResponseWriter, r *http.Request) {
 	if creatorID != "" {
 		tx = tx.Where("creator_id = ?", creatorID)
 	}
-
+	// Finds events based on given parameters
 	tx.Find(&events)
 
 	// If no events exist, return Bad request
