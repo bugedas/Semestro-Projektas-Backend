@@ -12,20 +12,21 @@ import (
 )
 
 type Event struct {
-	ID          uint       `json: "-" gorm:"primary_key"`
-	CreatedAt   time.Time  `json: "-"`
-	UpdatedAt   time.Time  `json: "-"`
-	DeletedAt   *time.Time `json: "-"`
-	Creator     User       `gorm:"foreignkey:CreatorID"`
-	CreatorName string
-	CreatorID   uint
-	Description string    `json: "description"`
-	Sport       string    `json: "sport"`
-	Location    string    `json: "location"`
-	StartTime   time.Time `json: "startTime"`
-	EndTime     time.Time `json: "endTime"`
-	Limit       int       `json: "limit"`
-	Users       []*User   `gorm:"many2many:events_joined;"`
+	ID           uint       `json: "-" gorm:"primary_key"`
+	CreatedAt    time.Time  `json: "-"`
+	UpdatedAt    time.Time  `json: "-"`
+	DeletedAt    *time.Time `json: "-"`
+	Creator      User       `gorm:"foreignkey:CreatorID"`
+	CreatorName  string
+	CreatorID    uint
+	Description  string    `json: "description"`
+	Sport        string    `json: "sport"`
+	Location     string    `json: "location"`
+	StartTime    time.Time `json: "startTime"`
+	EndTime      time.Time `json: "endTime"`
+	Limit        int       `json: "limit"`
+	Participants int
+	Users        []*User `gorm:"many2many:events_joined;"`
 }
 
 func CreateEvent(w http.ResponseWriter, r *http.Request) {
@@ -45,6 +46,8 @@ func CreateEvent(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&newEvent)
 	newEvent.Creator = user
 	newEvent.CreatorName = user.Username
+	newEvent.Participants = 1
+
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -92,13 +95,13 @@ func JoinEvent(w http.ResponseWriter, r *http.Request) {
 	var selectedEvent Event
 	db.Preload("Users").First(&selectedEvent, "id = ?", eventID)
 
-	if selectedEvent.Limit != 0 {
-		if selectedEvent.Limit <= len(selectedEvent.Users) {
-			w.WriteHeader(http.StatusInsufficientStorage)
-			JSONResponse(struct{}{}, w)
-			return
-		}
+	// check if event is not full
+	if selectedEvent.Limit == selectedEvent.Participants {
+		w.WriteHeader(http.StatusBadRequest)
+		JSONResponse(struct{}{}, w)
+		return
 	}
+
 	//Check if event and user exist
 	if selectedEvent.ID == 0 || user.ID == 0 {
 		w.WriteHeader(http.StatusBadRequest)
@@ -115,6 +118,7 @@ func JoinEvent(w http.ResponseWriter, r *http.Request) {
 
 	//Add user to event
 	db.Model(&selectedEvent).Association("Users").Append(&user)
+	db.Model(&selectedEvent).Updates(Event{Participants: selectedEvent.Participants + 1})
 
 	w.WriteHeader(http.StatusOK)
 	JSONResponse(struct{}{}, w)
@@ -164,7 +168,7 @@ func LeaveEvent(w http.ResponseWriter, r *http.Request) {
 
 	// Delete user from an event
 	db.Model(&selectedEvent).Association("Users").Delete(&user)
-
+	db.Model(&selectedEvent).Updates(Event{Participants: selectedEvent.Participants - 1})
 	w.WriteHeader(http.StatusOK)
 	JSONResponse(struct{}{}, w)
 	return
@@ -175,6 +179,7 @@ func GetEvents(w http.ResponseWriter, r *http.Request) {
 	keys := r.URL.Query()
 	location := keys.Get("location")
 	creatorID := keys.Get("creatorID")
+	sport := keys.Get("sport")
 	var events []Event
 
 	// Preloads user and creator tables for use in event response
@@ -186,6 +191,9 @@ func GetEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	if creatorID != "" {
 		tx = tx.Where("creator_id = ?", creatorID)
+	}
+	if sport != "" {
+		tx = tx.Where("sport = ?", sport)
 	}
 	// Finds events based on given parameters
 	tx.Find(&events)
