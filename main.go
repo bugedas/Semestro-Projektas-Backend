@@ -79,6 +79,9 @@ func main() {
 		log.Println(err.Error())
 	}
 
+	db.AutoMigrate(&User{})
+	db.AutoMigrate(&Event{})
+
 	//Checks if Users table exists, if it does not, creates one
 	if !db.HasTable(&User{}) {
 		db.CreateTable(&User{})
