@@ -25,8 +25,8 @@ type Event struct {
 	StartTime    time.Time `json: "startTime"`
 	EndTime      time.Time `json: "endTime"`
 	Limit        int       `json: "limit"`
-	Participants int
-	Users        []*User `gorm:"many2many:events_joined;"`
+	Participants int       `json:"participants"`
+	Users        []*User   `gorm:"many2many:events_joined;"`
 }
 
 func CreateEvent(w http.ResponseWriter, r *http.Request) {
