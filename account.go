@@ -207,6 +207,7 @@ func EditAccountInfo(w http.ResponseWriter, r *http.Request) {
 	if updatedUser.Description != "" {
 		tx.Model(&user).Updates(User{Description: updatedUser.Description})
 	}
+	tx.Find(&user)
 
 	w.WriteHeader(http.StatusOK)
 	JSONResponse(struct{}{}, w)
