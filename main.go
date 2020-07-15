@@ -79,9 +79,6 @@ func main() {
 		log.Println(err.Error())
 	}
 
-	db.AutoMigrate(&User{})
-	db.AutoMigrate(&Event{})
-
 	//Checks if Users table exists, if it does not, creates one
 	if !db.HasTable(&User{}) {
 		db.CreateTable(&User{})
@@ -95,6 +92,7 @@ func main() {
 	sessionStore = gormstore.New(db, []byte(envData.secret))
 	quit := make(chan struct{})
 	go sessionStore.PeriodicCleanup(time.Minute, quit)
+	go DeletePassedEvents()
 
 	//Handles the requests and redirects them to functions
 	HandleFunctions()

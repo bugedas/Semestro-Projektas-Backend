@@ -29,6 +29,13 @@ type Event struct {
 	Users        []*User   `gorm:"many2many:events_joined;"`
 }
 
+func DeletePassedEvents() {
+	for {
+		db.Where("end_time < ?", time.Now()).Delete(Event{})
+		time.Sleep(time.Minute)
+	}
+}
+
 func CreateEvent(w http.ResponseWriter, r *http.Request) {
 	session, _ := sessionStore.Get(r, "Access-token")
 
