@@ -193,7 +193,7 @@ func EditAccountInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user User
-	tx := db.Where("id = ?", session.Values["userID"]).First(&user)
+	tx := db.Where("id = ?", session.Values["userID"])
 
 	var updatedUser User
 	json.NewDecoder(r.Body).Decode(&updatedUser)
@@ -207,6 +207,7 @@ func EditAccountInfo(w http.ResponseWriter, r *http.Request) {
 	if updatedUser.Description != "" {
 		tx.Model(&user).Updates(User{Description: updatedUser.Description})
 	}
+	tx.First(&user)
 
 	w.WriteHeader(http.StatusOK)
 	JSONResponse(struct{}{}, w)

@@ -92,6 +92,7 @@ func main() {
 	sessionStore = gormstore.New(db, []byte(envData.secret))
 	quit := make(chan struct{})
 	go sessionStore.PeriodicCleanup(time.Minute, quit)
+	go DeletePassedEvents()
 
 	//Handles the requests and redirects them to functions
 	HandleFunctions()
